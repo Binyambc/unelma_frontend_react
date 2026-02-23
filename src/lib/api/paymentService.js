@@ -17,22 +17,24 @@ export const createCheckoutSession = async (paymentData) => {
     const frontendUrl =
       import.meta.env.VITE_FRONTEND_URL || window.location.origin;
 
-    // Build comprehensive request data with all metadata for order tracking
+    // Build request data. Use only fields your backend accepts to avoid 400.
     const requestData = {
       price_id: paymentData.stripePriceId,
-      product_id: paymentData.serviceId || null,
-      quantity: paymentData.quantity || 1,
+      quantity: paymentData.quantity ?? 1,
       success_url: `${frontendUrl}/payment/success`,
       cancel_url: `${frontendUrl}/payment/cancel`,
-      subscription_name:
-        paymentData.subscriptionName ||
-        (paymentData.serviceName && paymentData.planName
-          ? `${paymentData.serviceName} - ${paymentData.planName}`
-          : paymentData.planName || "default"),
-      // Additional metadata for better order tracking (if backend supports it)
-      service_name: paymentData.serviceName || null,
-      plan_name: paymentData.planName || null,
     };
+    if (paymentData.serviceId != null && paymentData.serviceId !== "") {
+      requestData.product_id = String(paymentData.serviceId);
+    }
+    const subscriptionName =
+      paymentData.subscriptionName ||
+      (paymentData.serviceName && paymentData.planName
+        ? `${paymentData.serviceName} - ${paymentData.planName}`
+        : paymentData.planName || "default");
+    if (subscriptionName && subscriptionName !== "default") {
+      requestData.subscription_name = subscriptionName;
+    }
 
     const response = await apiClient.post(
       "/stripe/checkout/session",
@@ -53,6 +55,21 @@ export const createCheckoutSession = async (paymentData) => {
     if (error.response?.status === 404) {
       errorMessage =
         "Payment endpoint not found. Please contact support or try again later.";
+    } else if (error.response?.status === 400) {
+      const data = error.response?.data;
+      if (import.meta.env.DEV && data) {
+        console.warn("[paymentService] 400 response:", data);
+      }
+      const backendMessage =
+        data?.message || data?.error || data?.detail;
+      const detailStr =
+        Array.isArray(data?.detail) && data.detail.length
+          ? data.detail.map((d) => d.msg ?? d.message ?? JSON.stringify(d)).join("; ")
+          : typeof data?.detail === "string"
+            ? data.detail
+            : null;
+      errorMessage =
+        backendMessage || detailStr || "Invalid request. Please check your selection and try again.";
     } else if (error.response?.status === 500) {
       const backendMessage =
         error.response?.data?.message || error.response?.data?.error;

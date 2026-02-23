@@ -159,10 +159,11 @@ function ServiceDetail() {
         return;
       }
 
-      // Prepare comprehensive payment data with all metadata for order tracking
+      // Prepare comprehensive payment data with all metadata for order tracking.
+      // Use service.id (backend DB id) for product_id, not the URL param (slug).
       const paymentData = {
         stripePriceId: plan.stripe_price_id,
-        serviceId: serviceId,
+        serviceId: service?.id != null ? String(service.id) : null,
         serviceName: service.name,
         planName: plan.name,
         quantity: 1,
@@ -452,20 +453,29 @@ function ServiceDetail() {
                             </Typography>
                             <Chip
                               label={
-                                plan.payment_type === "subscription"
+                                (plan.payment_type === "subscription" ||
+                                  plan.paymentType === "subscription" ||
+                                  service?.payment_type === "subscription" ||
+                                  service?.paymentType === "subscription")
                                   ? "Subscription"
                                   : "One-time"
                               }
                               size="small"
                               color={
-                                plan.payment_type === "subscription"
+                                (plan.payment_type === "subscription" ||
+                                  plan.paymentType === "subscription" ||
+                                  service?.payment_type === "subscription" ||
+                                  service?.paymentType === "subscription")
                                   ? undefined
                                   : "primary"
                               }
                               sx={{
                                 height: 24,
                                 fontSize: "0.75rem",
-                                ...(plan.payment_type === "subscription"
+                                ...(plan.payment_type === "subscription" ||
+                                plan.paymentType === "subscription" ||
+                                service?.payment_type === "subscription" ||
+                                service?.paymentType === "subscription"
                                   ? {
                                       backgroundColor: "#E57A44",
                                       color: "#FFFFFF",
